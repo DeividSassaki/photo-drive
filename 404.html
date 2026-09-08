@@ -3,109 +3,127 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visualizador Universal de Álbuns do Drive</title>
+    <title>Visualizador de Slides do Google Drive 📸</title>
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; background: #121212; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; margin: 0; color: #fff; }
-        .slider-container { width: 90%; max-width: 900px; height: 60vh; overflow: hidden; position: relative; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.7); display: none; background: #000; }
+        .container { background: #1e1e1e; padding: 30px; border-radius: 12px; border: 1px solid #333; text-align: center; max-width: 500px; width: 90%; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+        h2 { margin-top: 0; color: #4f46e5; }
+        input[type="text"] { width: 100%; padding: 12px; margin: 15px 0; border-radius: 6px; border: 1px solid #444; background: #2a2a2a; color: #fff; box-sizing: border-box; }
+        button.action-btn { background: #4f46e5; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; width: 100%; }
+        button.action-btn:hover { background: #4338ca; }
+        
+        /* Layout do Slider */
+        .slider-container { width: 90%; max-width: 900px; height: 70vh; overflow: hidden; position: relative; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.7); display: none; background: #000; }
         .slide { width: 100%; height: 100%; object-fit: contain; display: none; }
         .slide.active { display: block; }
-        .nav-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; padding: 18px; cursor: pointer; font-size: 20px; border-radius: 50%; z-index: 10; transition: 0.3s; }
-        .nav-btn:hover { background: rgba(255,255,255,0.2); }
+        .nav-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; padding: 18px; cursor: pointer; font-size: 20px; border-radius: 50%; z-index: 10; }
         .prev { left: 15px; }
         .next { right: 15px; }
-        #status { font-size: 18px; text-align: center; max-width: 500px; line-height: 1.6; }
-        .instructions { background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #333; }
-        ol { text-align: left; margin-top: 10px; }
-        li { margin-bottom: 8px; }
+        .back-btn { margin-top: 20px; background: #333; color: #ccc; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; display: none;}
     </style>
 </head>
 <body>
 
-    <div id="status">
-        <div class="instructions">
-            <h2>Visualizador de Slides do Google Drive 📸</h2>
-            <p>Para visualizar qualquer pasta do Google Drive como slide, certifique-se de que a pasta está pública ("Qualquer pessoa com o link") e acesse o link assim:</p>
-            <strong>://seusite.com</strong>
-        </div>
+    <!-- TELA INICIAL: ENTRADA DE LINK -->
+    <div class="container" id="main-panel">
+        <h2>Visualizador de Slides 📸</h2>
+        <p>Cole abaixo os IDs ou Links das fotos do Google Drive separados por vírgula para criar seu slide instantâneo.</p>
+        
+        <input type="text" id="drive-links" placeholder="Ex: ID1, ID2, ID3 ou os links completos...">
+        <button class="action-btn" onclick="gerarSlideDoInput()">Iniciar Slide</button>
+        
+        <p style="font-size: 13px; color: #aaa; margin-top: 15px; text-align: left;">
+            <strong>Como usar:</strong> Como o Google bloqueou a leitura de pastas inteiras, peça para seus usuários selecionarem as fotos dentro do Drive deles, clicarem em "Gerar Link" e colarem os links/IDs aqui dentro!
+        </p>
     </div>
 
+    <!-- TELA DO SLIDER -->
     <div class="slider-container" id="slider">
         <button class="nav-btn prev" onclick="mudarSlide(-1)">&#10094;</button>
         <button class="nav-btn next" onclick="mudarSlide(1)">&#10095;</button>
     </div>
+    
+    <button class="back-btn" id="btn-voltar" onclick="voltarParaInicio()">◀ Voltar e Inserir Outras Fotos</button>
 
     <script>
         let slideIndex = 0;
         let slides = [];
+        let intervalo;
 
-        // 1. Captura o ID da pasta do final da URL
+        // Verifica se veio alguma coisa na URL direto
         const pathSegments = window.location.pathname.split('/').filter(Boolean);
-        const folderId = pathSegments[pathSegments.length - 1];
+        const urlParam = pathSegments[pathSegments.length - 1];
 
-        // Se houver um ID na URL, tenta carregar as fotos de forma pública
-        if (folderId && folderId.length >= 25) {
-            document.getElementById('status').innerHTML = "<p>Buscando fotos da pasta pública... Por favor, aguarde.</p>";
-            carregarFotosPublicas(folderId);
+        if (urlParam && urlParam.length >= 25 && urlParam !== "photo-drive") {
+            // Se o usuário passou parâmetros na URL separados por vírgula
+            montarSlide(urlParam.split(','));
         }
 
-        async function carregarFotosPublicas(idDoDrive) {
-            // Usamos um proxy público para ler a página do Drive que o usuário deixou pública
-            // Isso dispensa o uso de chaves de API suas
-            const urlPublicaDoDrive = `https://google.com{idDoDrive}`;
-            const urlProxy = `https://allorigins.win{encodeURIComponent(urlPublicaDoDrive)}`;
+        function extrairId(texto) {
+            // Função para extrair o ID caso o usuário cole o link completo em vez de só o ID
+            const match = texto.match(/[-\w]{25,}/);
+            return match ? match[0] : texto.trim();
+        }
 
-            try {
-                const response = await fetch(urlProxy);
-                const data = await response.json();
-                
-                // Analisa o HTML da página do Drive para encontrar os IDs das fotos dentro dela
-                const htmlString = data.contents;
-                const regexMatches = [...htmlString.matchAll(/["']([a-zA-Z0-9_-]{25,})["']/g)];
-                
-                // Filtra IDs únicos encontrados na página que correspondem a arquivos
-                const idsEncontrados = [...new Set(regexMatches.map(m => m[1]))].filter(id => id.length > 25);
+        function generarSlideDoInput() {
+            const inputVal = document.getElementById('drive-links').value;
+            if (!inputVal) return alert('Por favor, insira pelo menos um ID ou link do Drive!');
+            
+            const itens = inputVal.split(',').map(item => extrairId(item));
+            
+            // Atualiza a URL do navegador dinamicamente para a pessoa poder copiar e compartilhar o link do slide!
+            const novaUrl = window.location.origin + window.location.pathname + '?' + itens.join(',');
+            window.history.pushState({}, '', novaUrl);
 
-                if (idsEncontrados.length === 0) {
-                    document.getElementById('status').innerHTML = `
-                        <div class="instructions">
-                            <p style="color: #ff6b6b;">⚠️ Nenhuma imagem encontrada.</p>
-                            <p>Verifique se o ID está correto e se você alterou o compartilhamento da pasta no Drive para <strong>"Qualquer pessoa com o link"</strong>.</p>
-                        </div>`;
-                    return;
-                }
+            montarSlide(itens);
+        }
 
-                document.getElementById('status').style.display = 'none';
-                const container = document.getElementById('slider');
-                container.style.display = 'block';
+        function montarSlide(listaDeIds) {
+            document.getElementById('main-panel').style.display = 'none';
+            const container = document.getElementById('slider');
+            container.style.display = 'block';
+            document.getElementById('btn-voltar').style.display = 'block';
 
-                // Adiciona as imagens no carrossel usando o link de visualização pública direta do Google
-                idsEncontrados.forEach((id, index) => {
-                    const img = document.createElement('img');
-                    img.src = `https://google.com{id}`;
-                    img.className = 'slide' + (index === 0 ? ' active' : '');
-                    // Ignora links quebrados que não sejam imagens reais
-                    img.onerror = function() { this.remove(); }; 
-                    container.appendChild(img);
-                });
+            // Limpa slides antigos se houver
+            const antigasImagens = container.querySelectorAll('img');
+            antigasImagens.forEach(img => img.remove());
 
-                slides = document.querySelectorAll('.slide');
-                if(slides.length > 0) {
-                    setInterval(() => mudarSlide(1), 4000); // Passa sozinho a cada 4 segundos
-                }
+            listaDeIds.forEach((id, index) => {
+                if(id.trim().length < 10) return;
+                const img = document.createElement('img');
+                // Link de renderização direta atualizado do Google
+                img.src = `https://google.com{id.trim()}`;
+                img.className = 'slide' + (index === 0 ? ' active' : '');
+                img.onerror = function() { this.remove(); }; 
+                container.appendChild(img);
+            });
 
-            } catch (error) {
-                document.getElementById('status').innerText = "Erro ao tentar conectar com a pasta do Google Drive.";
-                console.error(error);
+            slides = document.querySelectorAll('.slide');
+            slideIndex = 0;
+
+            if(slides.length > 0) {
+                clearInterval(intervalo);
+                intervalo = setInterval(() => mudarSlide(1), 4000); 
+            } else {
+                alert('Nenhuma imagem válida pôde ser carregada. Certifique-se de que os links estão configurados como públicos ("Qualquer pessoa com o link").');
+                voltarParaInicio();
             }
         }
 
         function mudarSlide(direcao) {
-            slides = document.querySelectorAll('.slide'); // Recarrega os slides válidos
             if (slides.length === 0) return;
-            
             slides[slideIndex].classList.remove('active');
             slideIndex = (slideIndex + direcao + slides.length) % slides.length;
             slides[slideIndex].classList.add('active');
+        }
+
+        function voltarParaInicio() {
+            clearInterval(intervalo);
+            document.getElementById('slider').style.display = 'none';
+            document.getElementById('btn-voltar').style.display = 'none';
+            document.getElementById('main-panel').style.display = 'block';
+            // Reseta a URL
+            window.history.pushState({}, '', window.location.origin + window.location.pathname);
         }
     </script>
 </body>
