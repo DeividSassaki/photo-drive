@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador Universal de Álbuns do Drive</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #121212; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; margin: 0; color: #fff; }
+        .slider-container { width: 90%; max-width: 900px; height: 60vh; overflow: hidden; position: relative; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.7); display: none; background: #000; }
+        .slide { width: 100%; height: 100%; object-fit: contain; display: none; }
+        .slide.active { display: block; }
+        .nav-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: white; border: none; padding: 18px; cursor: pointer; font-size: 20px; border-radius: 50%; z-index: 10; transition: 0.3s; }
+        .nav-btn:hover { background: rgba(255,255,255,0.2); }
+        .prev { left: 15px; }
+        .next { right: 15px; }
+        #status { font-size: 18px; text-align: center; max-width: 500px; line-height: 1.6; }
+        .instructions { background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid #333; }
+        ol { text-align: left; margin-top: 10px; }
+        li { margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+
+    <div id="status">
+        <div class="instructions">
+            <h2>Visualizador de Slides do Google Drive 📸</h2>
+            <p>Para visualizar qualquer pasta do Google Drive como slide, certifique-se de que a pasta está pública ("Qualquer pessoa com o link") e acesse o link assim:</p>
+            <strong>://seusite.com</strong>
+        </div>
+    </div>
+
+    <div class="slider-container" id="slider">
+        <button class="nav-btn prev" onclick="mudarSlide(-1)">&#10094;</button>
+        <button class="nav-btn next" onclick="mudarSlide(1)">&#10095;</button>
+    </div>
+
+    <script>
+        let slideIndex = 0;
+        let slides = [];
+
+        // 1. Captura o ID da pasta do final da URL
+        const pathSegments = window.location.pathname.split('/').filter(Boolean);
+        const folderId = pathSegments[pathSegments.length - 1];
+
+        // Se houver um ID na URL, tenta carregar as fotos de forma pública
+        if (folderId && folderId.length >= 25) {
+            document.getElementById('status').innerHTML = "<p>Buscando fotos da pasta pública... Por favor, aguarde.</p>";
+            carregarFotosPublicas(folderId);
+        }
+
+        async function carregarFotosPublicas(idDoDrive) {
+            // Usamos um proxy público para ler a página do Drive que o usuário deixou pública
+            // Isso dispensa o uso de chaves de API suas
+            const urlPublicaDoDrive = `https://google.com{idDoDrive}`;
+            const urlProxy = `https://allorigins.win{encodeURIComponent(urlPublicaDoDrive)}`;
+
+            try {
+                const response = await fetch(urlProxy);
+                const data = await response.json();
+                
+                // Analisa o HTML da página do Drive para encontrar os IDs das fotos dentro dela
+                const htmlString = data.contents;
+                const regexMatches = [...htmlString.matchAll(/["']([a-zA-Z0-9_-]{25,})["']/g)];
+                
+                // Filtra IDs únicos encontrados na página que correspondem a arquivos
+                const idsEncontrados = [...new Set(regexMatches.map(m => m[1]))].filter(id => id.length > 25);
+
+                if (idsEncontrados.length === 0) {
+                    document.getElementById('status').innerHTML = `
+                        <div class="instructions">
+                            <p style="color: #ff6b6b;">⚠️ Nenhuma imagem encontrada.</p>
+                            <p>Verifique se o ID está correto e se você alterou o compartilhamento da pasta no Drive para <strong>"Qualquer pessoa com o link"</strong>.</p>
+                        </div>`;
+                    return;
+                }
+
+                document.getElementById('status').style.display = 'none';
+                const container = document.getElementById('slider');
+                container.style.display = 'block';
+
+                // Adiciona as imagens no carrossel usando o link de visualização pública direta do Google
+                idsEncontrados.forEach((id, index) => {
+                    const img = document.createElement('img');
+                    img.src = `https://google.com{id}`;
+                    img.className = 'slide' + (index === 0 ? ' active' : '');
+                    // Ignora links quebrados que não sejam imagens reais
+                    img.onerror = function() { this.remove(); }; 
+                    container.appendChild(img);
+                });
+
+                slides = document.querySelectorAll('.slide');
+                if(slides.length > 0) {
+                    setInterval(() => mudarSlide(1), 4000); // Passa sozinho a cada 4 segundos
+                }
+
+            } catch (error) {
+                document.getElementById('status').innerText = "Erro ao tentar conectar com a pasta do Google Drive.";
+                console.error(error);
+            }
+        }
+
+        function mudarSlide(direcao) {
+            slides = document.querySelectorAll('.slide'); // Recarrega os slides válidos
+            if (slides.length === 0) return;
+            
+            slides[slideIndex].classList.remove('active');
+            slideIndex = (slideIndex + direcao + slides.length) % slides.length;
+            slides[slideIndex].classList.add('active');
+        }
+    </script>
+</body>
+</html>
