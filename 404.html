@@ -28,13 +28,13 @@
     <!-- TELA INICIAL: ENTRADA DE LINK -->
     <div class="container" id="main-panel">
         <h2>Visualizador de Slides 📸</h2>
-        <p>Cole abaixo os IDs das fotos do Google Drive separados por vírgula para criar seu slide instantâneo.</p>
+        <p>Cole abaixo os IDs ou Links das fotos do Google Drive separados por vírgula para criar seu slide instantâneo.</p>
         
         <input type="text" id="drive-links" placeholder="Ex: ID1, ID2, ID3 ou cole os links...">
         <button class="action-btn" onclick="gerarSlideDoInput()">Iniciar Slide</button>
         
         <p style="font-size: 13px; color: #aaa; margin-top: 15px; text-align: left;">
-            <strong>Dica:</strong> Copie o ID das fotos da sua pasta (como aquelas que você me enviou) separando-as por vírgula para gerar um carrossel que funciona e contorna o bloqueio do Google!
+            <strong>Dica:</strong> Cole os IDs ou os links das fotos separados por vírgula para rodar o slide perfeitamente.
         </p>
     </div>
 
@@ -83,11 +83,12 @@
             antigosFrames.forEach(f => f.remove());
 
             listaDeIds.forEach((id, index) => {
-                if(id.trim().length < 10) return;
+                const limpoId = id.trim();
+                if(limpoId.length < 10) return;
                 
-                // Criamos um iframe apontando para o visualizador oficial seguro do Drive
+                // Correção ortográfica do link de incorporação (Iframe Preview)
                 const iframe = document.createElement('iframe');
-                iframe.src = `https://google.com{id.trim()}/preview`;
+                iframe.src = "https://drive.google.com/file/d/" + limpoId + "/preview";
                 iframe.className = 'slide' + (index === 0 ? ' active' : '');
                 container.appendChild(iframe);
             });
@@ -97,7 +98,6 @@
 
             if(slides.length > 0) {
                 clearInterval(intervalo);
-                // Inicia a transição automática das fotos a cada 5 segundos
                 intervalo = setInterval(() => mudarSlide(1), 5000); 
             }
         }
