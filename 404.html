@@ -60,14 +60,13 @@
         function extrairAlbumId(texto) {
             const limpo = texto.trim();
             
-            // Regra inteligente que pega apenas o código final de 5 a 10 letras/números
+            // Nova regra que extrai o texto puro de 7 letras do ID, ignorando tudo antes
             const match = limpo.match(/([a-zA-Z0-9]{5,10})$/);
             if (match) {
-                return match[1];
+                return match[1]; // O [1] garante que o código envie apenas as letras puras (MEkPFK5) para a API!
             }
             return limpo;
         }
-
         function processarInput() {
             const valor = document.getElementById('album-input').value;
             if (!valor) return alert('Por favor, digite o ID ou cole o link do álbum!');
