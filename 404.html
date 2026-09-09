@@ -59,14 +59,15 @@
 
         function extrairAlbumId(texto) {
             const limpo = texto.trim();
-            // Pega tudo o que vem depois da última barra do link
-            const partesUrl = limpo.split('/');
-            const finalLink = partesUrl[partesUrl.length - 1];
             
-            // Se o link tiver traços (como teste-spiderman-MEkPFK5), pega só o código final
-            const partesId = finalLink.split('-');
-            return partesId[partesId.length - 1];
+            // Regra inteligente que pega apenas o código final de 5 a 10 letras/números
+            const match = limpo.match(/([a-zA-Z0-9]{5,10})$/);
+            if (match) {
+                return match[1];
+            }
+            return limpo;
         }
+
         function processarInput() {
             const valor = document.getElementById('album-input').value;
             if (!valor) return alert('Por favor, digite o ID ou cole o link do álbum!');
