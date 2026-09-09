@@ -58,12 +58,15 @@
         }
 
         function extrairAlbumId(texto) {
-            // Remove espaços e busca o ID final do padrão do Imgur (/a/ID ou /gallery/ID)
             const limpo = texto.trim();
-            const match = limpo.match(/(?:(?:a|gallery)\/)([a-zA-Z0-9]+)/);
-            return match ? match[1] : limpo;
+            // Pega tudo o que vem depois da última barra do link
+            const partesUrl = limpo.split('/');
+            const finalLink = partesUrl[partesUrl.length - 1];
+            
+            // Se o link tiver traços (como teste-spiderman-MEkPFK5), pega só o código final
+            const partesId = finalLink.split('-');
+            return partesId[partesId.length - 1];
         }
-
         function processarInput() {
             const valor = document.getElementById('album-input').value;
             if (!valor) return alert('Por favor, digite o ID ou cole o link do álbum!');
