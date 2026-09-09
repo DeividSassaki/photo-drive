@@ -30,8 +30,8 @@
     <!-- PAINEL PRINCIPAL (TELA INICIAL) -->
     <div class="container" id="main-panel">
         <h2>Visualizador de Álbuns Imgur 📸</h2>
-        <p>Cole o link ou o ID de um álbum do Imgur (pode ser Oculto/Hidden) para gerar o slide automático.</p>
-        <input type="text" id="album-input" placeholder="Ex: https://imgur.com ou apenas ABCDE">
+        <p>Cole o link do Imgur ou apenas o ID final do álbum para gerar o slide automático.</p>
+        <input type="text" id="album-input" placeholder="Ex: https://imgur.com ou apenas MEkPFK5">
         <button class="action-btn" onclick="processarInput()">Iniciar Slide</button>
         <div id="status-text"></div>
     </div>
@@ -49,32 +49,35 @@
         let slides = [];
         let intervalo;
 
-        // Captura o ID do álbum direto do final da URL se houver (ex: ://seusite.com)
+        // Verifica se o usuário já digitou o ID direto no link do navegador ao entrar
         const pathSegments = window.location.pathname.split('/').filter(Boolean);
         const urlParam = pathSegments[pathSegments.length - 1];
 
-        if (urlParam && urlParam.length >= 4 && urlParam !== "photo-drive") {
+        // Se o link terminar com um ID válido do Imgur (geralmente 5 a 10 caracteres) e não for o nome do projeto
+        if (urlParam && urlParam.length >= 5 && urlParam !== "photo-drive" && !urlParam.includes("teste")) {
             buscarAlbumImgur(urlParam);
         }
 
         function extrairAlbumId(texto) {
             const limpo = texto.trim();
+            // Divide por barras para isolar o final do link
+            const partesUrl = limpo.split('/');
+            const finalLink = partesUrl[partesUrl.length - 1];
             
-            // Nova regra que extrai o texto puro de 7 letras do ID, ignorando tudo antes
-            const match = limpo.match(/([a-zA-Z0-9]{5,10})$/);
-            if (match) {
-                return match[1]; // O [1] garante que o código envie apenas as letras puras (MEkPFK5) para a API!
-            }
-            return limpo;
+            // Isola o ID caso tenha traços (ex: teste-spiderman-MEkPFK5 -> MEkPFK5)
+            const partesId = finalLink.split('-');
+            return partesId[partesId.length - 1];
         }
+
         function processarInput() {
-            const valor = document.getElementById('album-input').value;
-            if (!valor) return alert('Por favor, digite o ID ou cole o link do álbum!');
+            // Pega estritamente o texto digitado na caixinha
+            const valorDigitado = document.getElementById('album-input').value;
+            if (!valorDigitado) return alert('Por favor, digite o ID ou cole o link do álbum!');
             
-            const albumId = extrairAlbumId(valor);
+            const albumId = extrairAlbumId(valorDigitado);
             
-            // Altera a URL no navegador sem recarregar a página para gerar o link compartilhável
-            const novaUrl = window.location.origin + window.location.pathname + (window.location.pathname.endsWith('/') ? '' : '/') + albumId;
+            // Atualiza a URL do navegador de forma limpa para gerar o link compartilhável
+            const novaUrl = window.location.origin + "/photo-drive/" + albumId;
             window.history.pushState({}, '', novaUrl);
             
             buscarAlbumImgur(albumId);
@@ -84,19 +87,16 @@
             const statusBox = document.getElementById('status-text');
             statusBox.innerText = "Carregando imagens do álbum...";
 
-            // Faz a requisição pública para a API anônima do Imgur sem precisar de chaves complexas
             const urlAPI = `https://imgur.com{albumId}/images`;
             
             try {
-                // Usamos o Client-ID padrão de código aberto para listar as imagens
                 const response = await fetch(urlAPI, {
                     headers: { 'Authorization': 'Client-ID 546c25a59c58ad7' }
                 });
                 const data = await response.json();
 
                 if (!data.success || !data.data || data.data.length === 0) {
-                    statusBox.innerHTML = "<span style='color:#ff6b6b'>Álbum não encontrado. Verifique se o ID está correto e se ele não é 100% privado (mude para Hidden).</span>";
-                    window.history.pushState({}, '', window.location.origin + window.location.pathname);
+                    statusBox.innerHTML = "<span style='color:#ff6b6b'>Álbum não encontrado. Verifique se digitou o ID correto (respeite maiúsculas e minúsculas).</span>";
                     return;
                 }
 
@@ -115,13 +115,11 @@
             container.style.display = 'block';
             document.getElementById('btn-voltar').style.display = 'block';
 
-            // Limpa slides antigos
             container.querySelectorAll('img').forEach(img => img.remove());
 
-            // Adiciona cada imagem do Imgur na tela usando tags <img> nativas super leves
             imagens.forEach((imgData, index) => {
                 const img = document.createElement('img');
-                img.src = imgData.link; // Link direto oficial da foto (.jpg, .png etc)
+                img.src = imgData.link;
                 img.className = 'slide' + (index === 0 ? ' active' : '');
                 container.appendChild(img);
             });
@@ -131,7 +129,6 @@
 
             if (slides.length > 0) {
                 clearInterval(intervalo);
-                // Transição automática das fotos a cada 4 segundos
                 intervalo = setInterval(() => mudarSlide(1), 4000); 
             }
         }
@@ -149,8 +146,7 @@
             document.getElementById('btn-voltar').style.display = 'none';
             document.getElementById('main-panel').style.display = 'block';
             document.getElementById('album-input').value = "";
-            // Reseta a URL limpando o ID antigo
-            window.history.pushState({}, '', window.location.origin + window.location.pathname);
+            window.history.pushState({}, '', window.location.origin + "/photo-drive/");
         }
     </script>
 </body>
